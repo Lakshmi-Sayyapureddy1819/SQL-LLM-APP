@@ -34,29 +34,29 @@ def read_sql_query(sql, db):
 prompt = [
     """
     You are an expert at converting English questions into SQL queries.
-    The SQLite database has a single table named STUDENT with the following exact columns:
+    The SQLite database has a single table named STUDENT with the following columns:
 
     ➤ NAME (Text)  
     ➤ CLASS (Text)  
-    ➤ SECTION (Text)
+    ➤ SECTION (Text)  
+    ➤ MARKS (Integer)
 
-    ❌ Do not use any other columns like AGE, MARKS, ID, or GRADE. They do not exist.
-
-    Your job is to return only the raw SQL query. Do not add any explanation or markdown formatting.
+    Return only the raw SQL query. Do not use markdown formatting or include explanations.
 
     Examples:
-    Q: How many students are in the Data Science class?  
-    A: SELECT COUNT(*) FROM STUDENT WHERE CLASS = "Data Science";
+    Q: Show all students with more than 80 marks.  
+    A: SELECT * FROM STUDENT WHERE MARKS > 80;
 
-    Q: Show all students in section A.  
-    A: SELECT * FROM STUDENT WHERE SECTION = "A";
+    Q: How many students are in section A?  
+    A: SELECT COUNT(*) FROM STUDENT WHERE SECTION = "A";
 
-    Q: Show all data from the student table.  
-    A: SELECT * FROM STUDENT;
+    Q: Show name and marks of students in Data Science class.  
+    A: SELECT NAME, MARKS FROM STUDENT WHERE CLASS = "Data Science";
 
-    Only return valid SQL queries. No ``` or extra text.
+    Only return valid SQL as plain text. No ``` or extra text.
     """
 ]
+
 
 # Streamlit App UI
 st.set_page_config(page_title="SQL Query Generator with Gemini")
