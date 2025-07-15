@@ -1,35 +1,93 @@
+from dotenv import load_dotenv
+load_dotenv()  # Load environment variables
+
+import streamlit as st
+import os
 import sqlite3
+import google.generativeai as genai
 
-## Connectt to SQlite
-connection=sqlite3.connect("student.db")
+# Configure Gemini API Key
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-# Create a cursor object to insert record,create table
+# Function to get SQL from Gemini
+def get_gemini_response(question, prompt):
+    model = genai.GenerativeModel('models/gemini-1.5-pro-latest')
+    response = model.generate_content([prompt[0], question])
+    return response.text
 
-cursor=connection.cursor()
+# Function to execute SQL query
+def read_sql_query(sql, db):
+    conn = sqlite3.connect(db)
+    cur = conn.cursor()
+    try:
+        print(f"Executing SQL: {sql}")
+        cur.execute(sql)
+        rows = cur.fetchall()
+        return rows
+    except Exception as e:
+        print(f"SQL execution error: {e}")
+        raise e
+    finally:
+        conn.close()
 
-## create the table
-table_info="""
-Create table STUDENT(NAME VARCHAR(25),CLASS VARCHAR(25),
-SECTION VARCHAR(25),MARKS INT);
+# STRICT Prompt for Gemini
+prompt = [
+    """
+    You are an expert at converting English questions into SQL queries.
+    The SQLite database has a single table named STUDENT with the following exact columns:
 
-"""
-cursor.execute(table_info)
+    ➤ NAME (Text)  
+    ➤ CLASS (Text)  
+    ➤ SECTION (Text)
 
-## Insert Some more records
+    ❌ Do not use any other columns like AGE, MARKS, ID, or GRADE. They do not exist.
 
-cursor.execute('''Insert Into STUDENT values('Krish','Data Science','A',90)''')
-cursor.execute('''Insert Into STUDENT values('Sudhanshu','Data Science','B',100)''')
-cursor.execute('''Insert Into STUDENT values('Darius','Data Science','A',86)''')
-cursor.execute('''Insert Into STUDENT values('Vikash','DEVOPS','A',50)''')
-cursor.execute('''Insert Into STUDENT values('Dipesh','DEVOPS','A',35)''')
+    Your job is to return only the raw SQL query. Do not add any explanation or markdown formatting.
 
-## Disspaly ALl the records
+    Examples:
+    Q: How many students are in the Data Science class?  
+    A: SELECT COUNT(*) FROM STUDENT WHERE CLASS = "Data Science";
 
-print("The inserted records are")
-data=cursor.execute('''Select * from STUDENT''')
-for row in data:
-    print(row)
+    Q: Show all students in section A.  
+    A: SELECT * FROM STUDENT WHERE SECTION = "A";
 
-## Commit your changes int he databse
-connection.commit()
-connection.close()
+    Q: Show all data from the student table.  
+    A: SELECT * FROM STUDENT;
+
+    Only return valid SQL queries. No ``` or extra text.
+    """
+]
+
+# Streamlit App UI
+st.set_page_config(page_title="SQL Query Generator with Gemini")
+st.header("🎓 Gemini-Powered SQL Data Explorer")
+
+# Input box
+question = st.text_input("Enter your question:", key="input")
+submit = st.button("Ask")
+
+# Process user query
+if submit and question:
+    raw_response = get_gemini_response(question, prompt)
+    print("Raw Gemini output:", raw_response)
+
+    # Clean the Gemini output
+    clean_sql = raw_response.strip().replace("```", "").replace("sql", "").strip()
+    print("Sanitized SQL:", clean_sql)
+
+    # Run the SQL
+    try:
+        results = read_sql_query(clean_sql, "test.db")
+        st.subheader("📄 Query Results:")
+        if results:
+            for row in results:
+                st.text(str(row))
+        else:
+            st.warning("No results found.")
+    except sqlite3.OperationalError as e:
+        if "no such column" in str(e):
+            st.error("❌ Your query used a column that doesn't exist. Use only: NAME, CLASS, SECTION.")
+        elif "no such table" in str(e):
+            st.error("❌ Table 'STUDENT' does not exist in test.db.")
+        else:
+            st.error(f"⚠️ SQL error: {e}")
