@@ -77,7 +77,7 @@ if submit and question:
 
     # Run the SQL
     try:
-        results = read_sql_query(clean_sql, "test.db")
+        results = read_sql_query(clean_sql, "student.db")
         st.subheader("📄 Query Results:")
         if results:
             for row in results:
